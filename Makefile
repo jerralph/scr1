@@ -77,7 +77,7 @@ endif
 ifeq (,$(findstring e,$(ARCH_lowercase)))
 ifeq (,$(findstring 0,$(IPIC)))
 # comment this target if you don't want to run the vectored_isr_sample
-TARGETS += vectored_isr_sample
+#TARGETS += vectored_isr_sample
 endif
 ifneq (,$(findstring m,$(ARCH_lowercase)))
 # comment this target if you don't want to run the riscv_isa
@@ -88,9 +88,9 @@ TARGETS += riscv_compliance
 endif
 
 # comment this target if you don't want to run the coremark
-TARGETS += coremark
+#TARGETS += coremark
 # comment this target if you don't want to run the dhrystone
-TARGETS += dhrystone21
+#TARGETS += dhrystone21
 
 
 # Targets
@@ -136,11 +136,12 @@ run_vcs: $(test_info)
 	+dmem_pattern=$(dmem_pattern) \
 	$(VCS_OPTS)
 
+# use -gui and -novopt rather than -c -do for debug and waves
 run_modelsim: $(test_info)
 	$(MAKE) -C $(root_dir)/sim build_modelsim; \
 	printf "" > $(test_results); \
 	cd $(bld_dir); \
-	vsim -c -do "run -all" +nowarn3691 \
+	vsim -c -do "run -all" +nowarn3691 -coverage -do "coverage save -onexit coverage.ucdb" +UVM_TESTNAME=riscv_vip_base_test \
 	+test_info=$(test_info) \
 	+test_results=$(test_results) \
 	+imem_pattern=$(imem_pattern) \
