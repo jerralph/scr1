@@ -6,6 +6,8 @@ rtl_tb_files ?= ahb_tb.files
 rtl_inc_dir ?= $(root_dir)/src/includes
 top_module ?= scr1_top_tb_ahb
 
+
+
 rtl_core_list := $(addprefix $(rtl_src_dir),$(shell cat $(rtl_src_dir)$(rtl_core_files)))
 rtl_top_list := $(addprefix $(rtl_src_dir),$(shell cat $(rtl_src_dir)$(rtl_top_files)))
 rtl_tb_list := $(addprefix $(rtl_src_dir),$(shell cat $(rtl_src_dir)$(rtl_tb_files)))
@@ -25,11 +27,16 @@ endif
 
 default: build_modelsim
 
+#use -novopt to be able to probe into all waves...
 build_modelsim: $(sv_list)
 	cd $(bld_dir); \
 	vlib work; \
 	vmap work work; \
-	vlog -work work -O1 -mfcu -sv +incdir+$(rtl_inc_dir) +nowarnSVCHK  \
+	vlog -work work -O1 -mfcu -sv +incdir+$(rtl_inc_dir) +nowarnSVCHK \
+	+incdir+$(rtl_inc_dir) \
+	+incdir+$(RISCV_VIP)/src \
+	+incdir+$(RISCV_VIP)/src/uvm \
+	+incdir+$(RISCV_VIP)/src/uvm/test \
 	+define+SCR1_SIM_ENV \
 	$(sv_list)
 
@@ -42,7 +49,6 @@ build_vcs: $(sv_list)
 	-notice \
 	+lint=all,noVCDE \
 	-timescale=1ns/1ps \
-	+incdir+$(rtl_inc_dir) \
 	+define+SCR1_SIM_ENV \
 	-nc \
 	-debug_all \
