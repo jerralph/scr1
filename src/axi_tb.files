@@ -1,3 +1,7 @@
+../../riscv-vip/src/riscv_vip_pkg.sv
+../../riscv-vip/src/riscv_vip_class_pkg.sv
+../../riscv-vip/src/uvm/riscv_vip_uvc_pkg.sv
+../../riscv-vip/src/uvm/test/riscv_vip_test_pkg.sv
 pipeline/scr1_tracelog.sv
 tb/scr1_memory_tb_axi.sv
 tb/scr1_top_tb_axi.sv
