@@ -8,6 +8,13 @@
 `include "scr1_ipic.svh"
 `endif // SCR1_IPIC_EN
 
+import uvm_pkg::*;
+import riscv_vip_uvc_pkg::*;
+import riscv_vip_test_pkg::*;
+`include "uvm_macros.svh"
+
+
+
 module scr1_top_tb_axi (
 `ifdef VERILATOR
     input logic clk
@@ -237,6 +244,139 @@ always_ff @(posedge clk) begin
     end
 end
 
+//------------------------------------------------------------------------------
+// [riscv-vip] tap
+//------------------------------------------------------------------------------
+
+//Glue logic to tap into instruction execution pipeline and
+//grab pc and inst for retired instructions
+
+ //White box signals
+logic imem_req;  
+logic imem_req_ack;
+logic [31:0] imem_addr;  
+logic [31:0] imem_rdata;  
+logic imem_resp_ok;
+logic exu_instret;
+logic [31:0] exu_curr_pc;  
+
+//Derived signals
+localparam FETCHED_LUT_SIZE = 10; 
+logic [31:0] addr_delayed; 
+logic [31:0] addr[$:FETCHED_LUT_SIZE-1] = {};  //newest at the front
+logic [31:0] data[$:FETCHED_LUT_SIZE-1] = {};  
+logic [31:0] pc;   
+int qi[$];
+logic [31:0] inst;  
+
+assign imem_req = i_top.i_core_top.i_pipe_top.i_pipe_ifu.imem_req;  
+assign imem_req_ack = i_top.i_core_top.i_pipe_top.i_pipe_ifu.imem_req_ack;  
+assign imem_addr =  i_top.i_core_top.i_pipe_top.i_pipe_ifu.imem_addr;  
+assign imem_rdata = i_top.i_core_top.i_pipe_top.i_pipe_ifu.imem_rdata;  
+assign imem_resp_ok = i_top.i_core_top.i_pipe_top.i_pipe_ifu.imem_resp_ok;  
+assign exu_instret = i_top.i_core_top.i_pipe_top.i_pipe_exu.instret; 
+assign exu_curr_pc = i_top.i_core_top.i_pipe_top.i_pipe_exu.curr_pc; 
+
+
+always_ff @(posedge clk) begin
+
+  //delay the address to match up with the data for that addr
+  if (imem_req & imem_req_ack) begin
+    addr_delayed <= imem_addr;    
+  end
+
+  //Store the fetched inst addr and data. This is used to look up the inst given 
+  //the curr_pc of the execution stage of the pipeline
+  if (imem_resp_ok) begin    
+    //Keep the lookup to FETCHED_LUT_SIZE entries
+    if(addr.size() == FETCHED_LUT_SIZE) begin    
+      addr.delete(FETCHED_LUT_SIZE-1);
+      data.delete(FETCHED_LUT_SIZE-1);      
+    end
+    addr.push_front(addr_delayed);    
+    data.push_front(imem_rdata);    
+  end
+  if (exu_instret) begin
+    pc <= exu_curr_pc;
+    if (addr.size() > 0) begin
+      qi = addr.find_first_index() with (item == exu_curr_pc );
+      assert(qi.size() == 1) else $fatal(1);    
+      inst <= data[ qi[0] ];
+    end
+  end  
+end // always_ff @
+
+//riscv-vip virtual if instantiation
+riscv_vip_inst_if rv_vip_inst_if(
+  clk,
+  rst_n
+);
+
+assign rv_vip_inst_if.curr_pc = pc;      
+assign rv_vip_inst_if.curr_inst = inst;
+//
+riscv_vip_regfile_if rv_vip_rf_if(
+  clk,
+  rst_n
+);
+
+//White box the multi-port register file
+genvar r;
+generate
+  for (r = 1; r < 32; r++) begin : gen_mprf_assign   
+    assign rv_vip_rf_if.x[r] = i_top.i_core_top.i_pipe_top.i_pipe_mprf.mprf_int[r];
+  end : gen_mprf_assign
+endgenerate
+
+//CSR interface (currently not implemented, but things will error if not set into
+//config db
+riscv_vip_csr_if rv_vip_csr_if(clk,rst_n);
+   
+genvar core;
+generate
+
+  for (core = 0; core < `NUM_CORES; core++) begin : gen_cores
+    const static string agent_xmr = $psprintf("uvm_test_top.m_uvc_env.m_i32_agent[%0d]",core);    
+    initial begin : set_riscv_vip_vif_to_db                   
+
+      uvm_config_db#(virtual riscv_vip_inst_if)::set(
+        null,
+        agent_xmr,
+        "m_vi",
+        rv_vip_inst_if
+      );
+
+      uvm_config_db#(virtual riscv_vip_regfile_if)::set(
+        null,
+        agent_xmr,
+        "m_rf_vi",
+        rv_vip_rf_if
+      );
+
+      uvm_config_db#(virtual riscv_vip_csr_if)::set(
+        null,
+        agent_xmr,
+        "m_csr_vi",
+        rv_vip_csr_if
+      );
+     
+      uvm_config_db#(int)::set(
+        null,
+        agent_xmr,
+        "m_core_id",
+        core
+        );
+     
+    end      
+  end : gen_cores
+endgenerate
+
+//Run UVM test
+initial begin
+  run_test();
+end    
+
+  
 //------------------------------------------------------------------------------
 // Core instance
 //------------------------------------------------------------------------------
