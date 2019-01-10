@@ -32,7 +32,7 @@ build_modelsim: $(sv_list)
 	cd $(bld_dir); \
 	vlib work; \
 	vmap work work; \
-	vlog -work work -O1 -mfcu -sv +incdir+$(rtl_inc_dir) +nowarnSVCHK \
+	vlog -work work -O1 -incr -mfcu -sv +incdir+$(rtl_inc_dir) +nowarnSVCHK \
 	+incdir+$(rtl_inc_dir) \
 	+incdir+$(RISCV_VIP)/src \
 	+incdir+$(RISCV_VIP)/src/uvm \

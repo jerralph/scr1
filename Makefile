@@ -141,7 +141,7 @@ run_modelsim: $(test_info)
 	$(MAKE) -C $(root_dir)/sim build_modelsim; \
 	printf "" > $(test_results); \
 	cd $(bld_dir); \
-	vsim -c -do "run -all" +nowarn3691 -coverage -do "coverage save -onexit coverage.ucdb" +UVM_TESTNAME=riscv_vip_base_test \
+	vsim -c "+nowarn3691" "+acc" -voptargs="+cover=bcefst" -coverage -do "coverage save -onexit coverage.ucdb; run -all" +UVM_TESTNAME=riscv_vip_base_test \
 	+test_info=$(test_info) \
 	+test_results=$(test_results) \
 	+imem_pattern=$(imem_pattern) \
